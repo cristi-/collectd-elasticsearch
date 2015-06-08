@@ -32,8 +32,10 @@ VERBOSE_LOGGING = False
 health = {
     'green' : 0,
     'yellow': 1,
-    'red':    3,
+    'red':    2,
 }
+
+UNKNOWN = 3
 
 
 Stat = collections.namedtuple('Stat', ('type', 'path'))
@@ -233,7 +235,7 @@ def process_health(url):
     """Read a the health status from url, map health to an integer and return the json"""
     try:
         result = json.load(urllib2.urlopen(url, timeout=10))
-        result['status'] = health[result['status']] if result['status'] in health else '4'
+        result['status'] = health[result['status']] if result['status'] in health else UNKNOWN
     except urllib2.URLError, e:
         collectd.error('elasticsearch plugin: Error connecting to %s - %r' % (ES_URL, e))
         return None
