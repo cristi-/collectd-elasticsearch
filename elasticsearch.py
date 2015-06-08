@@ -28,12 +28,24 @@ ES_VERSION = "1.0"
 ES_URL = ""
 VERBOSE_LOGGING = False
 
+#health mapping
+health = {
+    'green' : 0,
+    'yellow': 1,
+    'red':    3,
+}
+
+
 Stat = collections.namedtuple('Stat', ('type', 'path'))
 
 STATS_CUR = {}
 
 # DICT: ElasticSearch 1.0.0
 STATS_ES1 = {
+    ## ES HEALTH
+    'health.status': Stat("gauge", "nodes.%s.health.status")
+    'health.number_of_nodes': Stat("gauge", "nodes.%s.health.number_of_nodes")
+
     ## STORE
     'indices.store.throttle-time': Stat("counter", "nodes.%s.indices.store.throttle_time_in_millis"),
 
@@ -160,7 +172,7 @@ def lookup_stat(stat, json):
 
 def configure_callback(conf):
     """Received configuration information"""
-    global ES_HOST, ES_PORT, ES_URL, ES_VERSION, VERBOSE_LOGGING, STATS_CUR
+    global ES_HOST, ES_PORT, ES_URL, ES_URL2, ES_VERSION, VERBOSE_LOGGING, STATS_CUR
     for node in conf.children:
         if node.key == 'Host':
             ES_HOST = node.values[0]
@@ -177,9 +189,11 @@ def configure_callback(conf):
                              % node.key)
     if ES_VERSION == "1.0":
         ES_URL = "http://" + ES_HOST + ":" + str(ES_PORT) + "/_nodes/_local/stats/transport,http,process,jvm,indices,thread_pool"
+        ES_URL2 = "http://" + ES_HOST + ":" + str(ES_PORT) + "/_cluster/health"
         STATS_CUR = dict(STATS.items() + STATS_ES1.items())
     else:
         ES_URL = "http://" + ES_HOST + ":" + str(ES_PORT) + "/_cluster/nodes/_local/stats?http=true&process=true&jvm=true&transport=true&thread_pool=true"
+        ES_URL2 = "http://" + ES_HOST + ":" + str(ES_PORT) + "/_cluster/health"
         STATS_CUR = dict(STATS.items() + STATS_ES09.items())
 
     # add info on thread pools
@@ -199,6 +213,7 @@ def fetch_stats():
 
     try:
         result = json.load(urllib2.urlopen(ES_URL, timeout=10))
+        result['nodes'][result['nodes'].keys()[0]]['health'] = process_health(ES_URL2)
     except urllib2.URLError, e:
         collectd.error('elasticsearch plugin: Error connecting to %s - %r' % (ES_URL, e))
         return None
@@ -214,6 +229,15 @@ def parse_stats(json):
         result = lookup_stat(name, json)
         dispatch_stat(result, name, key)
 
+def process_health(url):
+    """Read a the health status from url, map health to an integer and return the json"""
+    try:
+        result = json.load(urllib2.urlopen(url, timeout=10))
+        result['status'] = health[result['status']] if result['status'] in health else '4'
+    except urllib2.URLError, e:
+        collectd.error('elasticsearch plugin: Error connecting to %s - %r' % (ES_URL, e))
+        return None
+    return result
 
 def dispatch_stat(result, name, key):
     """Read a key from info response data and dispatch a value"""
