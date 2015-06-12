@@ -34,7 +34,6 @@ health = {
     'yellow': 1,
     'red':    2,
 }
-
 UNKNOWN = 3
 
 
@@ -45,8 +44,8 @@ STATS_CUR = {}
 # DICT: ElasticSearch 1.0.0
 STATS_ES1 = {
     ## ES HEALTH
-    'health.status': Stat("gauge", "nodes.%s.health.status")
-    'health.number_of_nodes': Stat("gauge", "nodes.%s.health.number_of_nodes")
+    'health.status': Stat("gauge", "nodes.%s.health.status"),
+    'health.number_of_nodes': Stat("gauge", "nodes.%s.health.number_of_nodes"),
 
     ## STORE
     'indices.store.throttle-time': Stat("counter", "nodes.%s.indices.store.throttle_time_in_millis"),
